@@ -5,7 +5,8 @@ Gro var ikke å få tak i før første versjon ble bygget. Her er det jeg ville 
 ## Uker og booking
 
 1. **Hva er «en uke» på hytta?**
-   Antar: mandag til søndag, altså vanlige ukenumre (uke 8, uke 12). Når på dagen man bytter, avtaler folk seg imellom.
+   **Avklart med Gro:** fredag til fredag. De som reiser, er ute innen kl. 12, så vaskehjelpen rekker over før neste gjeng kommer etter jobb. Uka bytter altså fredag kl. 12.
+   Uka har nummeret til ukedagene den holder: «uke 8» i 2027 er fredag 19. til fredag 26. februar, med helga før og hele skoleuka. Påskeuka begynner langfredag, så den holder påskehelga og 2. påskedag (i 2027: 26. mars til 2. april).
 
 2. **Lånes hytta bare ut for hele uker?**
    Antar: ja. Én booking er hele hytta i hele uka. Ingen helger eller enkeltdøgn.
@@ -25,7 +26,7 @@ Gro var ikke å få tak i før første versjon ble bygget. Her er det jeg ville 
 ## Trekning
 
 7. **Hvilke uker skal det trekkes lodd om, og hvem bestemmer det?**
-   Antar: du bestemmer, uke for uke, på siden «For kontorsjefen». Påskeuka og uke 8 er lagt inn fra start så det er noe å se på. Vinterferien er uke 8, 9 eller 10 etter hvor i landet dere holder til; uke 8 er en gjetning.
+   Antar: du bestemmer, uke for uke, på siden «For kontorsjefen». Påskeuka (fra langfredag) og uke 8 er lagt inn fra start så det er noe å se på. Vinterferien er uke 8, 9 eller 10 etter hvor i landet dere holder til; uke 8 er en gjetning.
 
 8. **Har alle lik sjanse?**
    Antar: ja. Ett lodd per person, og den som fikk påsken i fjor, stiller likt med alle andre.

@@ -18,6 +18,7 @@ export function calendarPage({ weeks, today, name, message, typedName }) {
       <div class="hero-text">
         <h1>Når er hytta ledig?</h1>
         <p>Book en ledig uke. Ukene alle vil ha, trekker vi lodd om: meld deg på, så trekkes vinneren mens kontoret ser på.</p>
+        <p>En hytteuke går fra fredag til fredag. Bytte er fredag kl. 12: de som reiser, er ute da, så vaskehjelpen rekker å gjøre klart før neste gjeng kommer etter jobb.</p>
       </div>
     </section>
 

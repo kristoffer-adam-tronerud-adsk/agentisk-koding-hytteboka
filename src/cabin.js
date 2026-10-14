@@ -12,7 +12,7 @@
 // { ok: true }, or leaves it as it was and answers { ok: false, status, message } with words for the person.
 
 import { randomInt } from 'node:crypto';
-import { addWeeks, currentWeek, easterSunday, isWeekId, weekIdOf, weekNumber, weeksFrom } from './weeks.js';
+import { addWeeks, currentWeek, easterWeek, isWeekId, weekNumber, weeksFrom } from './weeks.js';
 
 /** How many weeks are shown and can be booked, counting the one we are in. */
 export const HORIZON = 52;
@@ -32,7 +32,7 @@ export function firstState(now = new Date()) {
   const next = (weekIn) => [weekIn(year), weekIn(year + 1)].find((week) => isOpen(week, today));
 
   const winterBreak = next((y) => `${y}-W08`);
-  const easter = next((y) => weekIdOf(easterSunday(y)));
+  const easter = next(easterWeek);
   if (winterBreak) state.draws[winterBreak] = { label: 'Vinterferie', entries: [] };
   if (easter) state.draws[easter] = { label: 'Påske', entries: [] };
   return state;

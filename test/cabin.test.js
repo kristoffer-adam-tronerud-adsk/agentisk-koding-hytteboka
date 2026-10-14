@@ -5,10 +5,10 @@ import {
   unmarkDraw, withdraw,
 } from '../src/cabin.js';
 
-// The week the tests happen in: 12 to 18 October 2026.
+// The week the tests happen in: Friday 9 to Friday 16 October 2026.
 const TODAY = '2026-W42';
 const AUTUMN = '2026-W45';
-const EASTER = '2027-W12';
+const EASTER = '2027-W13';
 const NOW = '2026-10-14T08:00:00.000Z';
 
 const as = (name, week) => ({ name, week, today: TODAY, now: NOW });
@@ -103,7 +103,7 @@ describe('giving a week up', () => {
 describe('entering a draw', () => {
   test('a week a winner is drawn for cannot be booked', () => {
     const state = bookWithEaster();
-    refused(state, book, as('Ola Nordmann', EASTER), /Det trekkes lodd om uke 12/);
+    refused(state, book, as('Ola Nordmann', EASTER), /Det trekkes lodd om uke 13/);
   });
 
   test('those who want the week enter, in the order they came', () => {
@@ -196,8 +196,8 @@ describe('drawing the winner', () => {
   test('after the draw nobody enters, leaves or books the week', () => {
     const state = bookWithEaster(...people);
     draw(state, () => 0);
-    refused(state, enter, as('Nina Berg', EASTER), /Trekningen om uke 12 er gjort/);
-    refused(state, withdraw, as('Kari Hansen', EASTER), /Trekningen om uke 12 er gjort/);
+    refused(state, enter, as('Nina Berg', EASTER), /Trekningen om uke 13 er gjort/);
+    refused(state, withdraw, as('Kari Hansen', EASTER), /Trekningen om uke 13 er gjort/);
     refused(state, book, as('Nina Berg', EASTER), /gikk til Ola Nordmann/);
   });
 
@@ -252,7 +252,7 @@ describe('choosing the weeks a winner is drawn for', () => {
     const state = bookWithEaster('Ola Nordmann');
     refused(state, unmarkDraw, choose(EASTER), /1 har meldt seg på/);
     drawWinner(state, { week: EASTER, today: TODAY, now: NOW });
-    refused(state, unmarkDraw, choose(EASTER), /Trekningen om uke 12 er gjort/);
+    refused(state, unmarkDraw, choose(EASTER), /Trekningen om uke 13 er gjort/);
     refused(state, unmarkDraw, choose(AUTUMN), /Det trekkes ikke lodd om uke 45/);
   });
 });
@@ -276,18 +276,18 @@ describe('the book as it is shown', () => {
     assert.deepEqual(state.bookings, {});
     assert.deepEqual(state.draws, {
       '2027-W08': { label: 'Vinterferie', entries: [] },
-      '2027-W12': { label: 'Påske', entries: [] },
+      '2027-W13': { label: 'Påske', entries: [] },
     });
   });
 
   test('a new book takes this year’s weeks while they are still ahead', () => {
     const state = firstState(new Date('2027-01-11T12:00:00Z'));
-    assert.deepEqual(Object.keys(state.draws), ['2027-W08', '2027-W12']);
+    assert.deepEqual(Object.keys(state.draws), ['2027-W08', '2027-W13']);
   });
 
   test('a new book leaves out an Easter that is more than 52 weeks away', () => {
-    // The week after Easter 2027. Easter 2028 is in week 15, 54 weeks later.
-    const state = firstState(new Date('2027-03-29T12:00:00Z'));
+    // The week after Easter 2027. Easter 2028 is in week 16, 54 weeks later.
+    const state = firstState(new Date('2027-04-05T12:00:00Z'));
     assert.deepEqual(Object.keys(state.draws), ['2028-W08']);
   });
 });
