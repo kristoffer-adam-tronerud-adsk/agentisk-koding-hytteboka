@@ -4,6 +4,7 @@ import {
   book, calendar, cancel, drawWinner, emptyState, enter, firstState, HORIZON, markDraw, readName, sameName,
   unmarkDraw, withdraw,
 } from '../src/cabin.js';
+import { easterSunday, formatRange, weekIdOf } from '../src/weeks.js';
 
 // The week the tests happen in: Friday 9 to Friday 16 October 2026.
 const TODAY = '2026-W42';
@@ -348,5 +349,144 @@ describe('the book as it is shown', () => {
     // The week after Easter 2027. Easter 2028 starts in week 15, 53 weeks later.
     const state = firstState(new Date('2027-04-05T12:00:00Z'));
     assert.deepEqual(Object.keys(state.draws), ['2028-W08']);
+  });
+});
+
+describe('drawing the holidays', () => {
+  // Christmas 2026 runs into week 53, which 2026 has, and on into 2027.
+  const CHRISTMAS_EVE = '2026-W52';
+  const ROMJUL = '2026-W53';
+  const NEW_YEAR = '2027-W01';
+  // Ascension Day 2027 is a Thursday, and the Friday squeezed in after it is when the week changes.
+  const ASCENSION = '2027-W18';
+  const ASCENSION_FRIDAY = '2027-W19';
+  // Whit Monday and 17 May are the same day in 2027.
+  const WHITSUN = '2027-W20';
+
+  const day = (date) => new Date(`${date}T00:00:00Z`);
+  const daysAfter = (date, count) => new Date(date.getTime() + count * 86_400_000);
+  const pickWinner = (state, week, pick) => drawWinner(state, { week, today: TODAY, now: NOW, pick });
+
+  /** A book where the office manager has set up a draw, and these people have entered it. */
+  function bookWithDraw(week, label, weeks, ...entered) {
+    const state = emptyState();
+    assert.equal(markDraw(state, { week, label, weeks, today: TODAY }).ok, true);
+    for (const name of entered) assert.equal(enter(state, as(name, week)).ok, true);
+    return state;
+  }
+
+  test('the holidays fall in the weeks the tests draw for', () => {
+    assert.equal(weekIdOf(day('2026-12-24')), CHRISTMAS_EVE);
+    assert.equal(weekIdOf(day('2026-12-25')), ROMJUL, 'Christmas Day is a Friday, so the week changes at 12:00 that day');
+    assert.equal(weekIdOf(day('2026-12-31')), ROMJUL);
+    assert.equal(weekIdOf(day('2027-01-01')), NEW_YEAR);
+
+    const easter = easterSunday(2027);
+    assert.equal(weekIdOf(daysAfter(easter, -3)), EASTER, 'Maundy Thursday is in the week before Easter week');
+    assert.equal(weekIdOf(daysAfter(easter, 39)), ASCENSION);
+    assert.equal(weekIdOf(daysAfter(easter, 40)), ASCENSION_FRIDAY);
+    assert.equal(weekIdOf(daysAfter(easter, 50)), WHITSUN);
+    assert.equal(weekIdOf(day('2027-05-17')), WHITSUN);
+  });
+
+  test('both of Easter’s holidays, Maundy Thursday and Easter Monday, are in the Easter draw', () => {
+    const state = bookWithEaster('Ola Nordmann', 'Kari Hansen');
+    pickWinner(state, EASTER, () => 1);
+    const easter = easterSunday(2027);
+    assert.equal(state.bookings[weekIdOf(daysAfter(easter, -3))].name, 'Kari Hansen');
+    assert.equal(state.bookings[weekIdOf(daysAfter(easter, 1))].name, 'Kari Hansen');
+  });
+
+  test('Christmas and the days up to New Year can be one draw, over week 52 and 53', () => {
+    const state = bookWithDraw(CHRISTMAS_EVE, 'Jul', 2, 'Ola Nordmann', 'Kari Hansen');
+    refused(state, book, as('Per Olsen', ROMJUL), /Det trekkes lodd om uke 52 og 53/);
+    assert.equal(book(state, as('Per Olsen', NEW_YEAR)).ok, true, 'New Year is not part of Christmas');
+
+    pickWinner(state, CHRISTMAS_EVE, () => 1);
+    assert.equal(state.bookings[CHRISTMAS_EVE].name, 'Kari Hansen');
+    assert.equal(state.bookings[ROMJUL].name, 'Kari Hansen');
+    assert.equal(formatRange(CHRISTMAS_EVE, { weeks: 2 }), '18. desember 2026 – 1. januar 2027');
+  });
+
+  test('a draw over New Year runs from week 53 into week 1 of the next year', () => {
+    const state = bookWithDraw(ROMJUL, 'Nyttår', 2, 'Ola Nordmann', 'Kari Hansen', 'Per Olsen');
+    refused(state, book, as('Nina Berg', NEW_YEAR), /Det trekkes lodd om uke 53 og 1/);
+
+    assert.deepEqual(pickWinner(state, ROMJUL, () => 2), { ok: true, winner: 2, entries: ['Ola Nordmann', 'Kari Hansen', 'Per Olsen'] });
+    assert.deepEqual(state.bookings, {
+      [ROMJUL]: { name: 'Per Olsen', at: NOW },
+      [NEW_YEAR]: { name: 'Per Olsen', at: NOW },
+    });
+    assert.equal(formatRange(ROMJUL, { weeks: 2 }), '25. desember 2026 – 8. januar 2027');
+
+    const stay = calendar(state, TODAY).find((entry) => entry.week === ROMJUL);
+    assert.deepEqual(stay.weeks, [ROMJUL, NEW_YEAR], 'one stay in the calendar, across the turn of the year');
+    assert.equal(calendar(state, TODAY).find((entry) => entry.week === NEW_YEAR), undefined);
+  });
+
+  test('a New Year winner who gives up week 1 gives up week 53 as well, and the draw opens again', () => {
+    const state = bookWithDraw(ROMJUL, 'Nyttår', 2, 'Ola Nordmann', 'Kari Hansen');
+    pickWinner(state, ROMJUL, () => 0);
+    assert.equal(cancel(state, as('Ola Nordmann', NEW_YEAR)).ok, true);
+    assert.deepEqual(state.bookings, {});
+    assert.deepEqual(state.draws[ROMJUL].entries.map((entry) => entry.name), ['Kari Hansen']);
+    assert.equal(pickWinner(state, ROMJUL, () => 0).ok, true);
+    assert.equal(state.bookings[NEW_YEAR].name, 'Kari Hansen');
+  });
+
+  test('Christmas and New Year cannot both be drawn for week 53', () => {
+    const state = bookWithDraw(CHRISTMAS_EVE, 'Jul', 2);
+    refused(state, markDraw, { week: ROMJUL, label: 'Nyttår', weeks: 2, today: TODAY }, /Det trekkes allerede lodd om uke 53/);
+    assert.equal(markDraw(state, { week: NEW_YEAR, label: 'Nyttår', weeks: 1, today: TODAY }).ok, true, 'week 1 is still free');
+  });
+
+  test('a week someone has already booked over Christmas cannot be drawn for afterwards', () => {
+    const state = emptyState();
+    book(state, as('Ola Nordmann', ROMJUL));
+    refused(state, markDraw, { week: CHRISTMAS_EVE, label: 'Jul', weeks: 2, today: TODAY }, /Uke 53 er allerede booket av Ola Nordmann/);
+  });
+
+  test('next Christmas is more than 52 weeks away, so it cannot be drawn for yet', () => {
+    const christmas2027 = weekIdOf(day('2027-12-24'));
+    refused(emptyState(), markDraw, { week: christmas2027, label: 'Jul', weeks: 1, today: TODAY }, /for langt fram/);
+  });
+
+  test('the long weekend over Ascension Day is two weeks, since the squeezed-in Friday is when the week changes', () => {
+    const state = bookWithDraw(ASCENSION, 'Kristi himmelfart', 2, 'Ola Nordmann', 'Kari Hansen');
+    refused(state, book, as('Per Olsen', ASCENSION_FRIDAY), /Det trekkes lodd om uke 18 og 19/);
+    pickWinner(state, ASCENSION, () => 0);
+    assert.equal(state.bookings[ASCENSION].name, 'Ola Nordmann');
+    assert.equal(state.bookings[ASCENSION_FRIDAY].name, 'Ola Nordmann');
+    assert.equal(formatRange(ASCENSION, { weeks: 2 }), '30. april – 14. mai 2027');
+  });
+
+  test('Whitsun and 17 May are one week, and can be drawn right after Ascension', () => {
+    const state = bookWithDraw(ASCENSION, 'Kristi himmelfart', 2, 'Ola Nordmann');
+    assert.equal(markDraw(state, { week: WHITSUN, label: 'Pinse og 17. mai', weeks: 1, today: TODAY }).ok, true);
+    assert.equal(enter(state, as('Ola Nordmann', WHITSUN)).ok, true, 'one person can be in both draws');
+    assert.equal(enter(state, as('Kari Hansen', WHITSUN)).ok, true);
+
+    pickWinner(state, ASCENSION, () => 0);
+    pickWinner(state, WHITSUN, () => 0);
+    assert.deepEqual(Object.keys(state.bookings), [ASCENSION, ASCENSION_FRIDAY, WHITSUN]);
+    assert.ok(Object.values(state.bookings).every((booking) => booking.name === 'Ola Nordmann'), 'and win both');
+    assert.equal(formatRange(WHITSUN), '14.–21. mai 2027');
+  });
+
+  test('the draws for the holidays stand side by side in the calendar, each as one stay', () => {
+    const state = bookWithDraw(CHRISTMAS_EVE, 'Jul', 2);
+    markDraw(state, { week: NEW_YEAR, label: 'Nyttår', weeks: 1, today: TODAY });
+    markDraw(state, { week: ASCENSION, label: 'Kristi himmelfart', weeks: 2, today: TODAY });
+    markDraw(state, { week: WHITSUN, label: 'Pinse og 17. mai', weeks: 1, today: TODAY });
+    const weeks = calendar(state, TODAY);
+
+    assert.equal(weeks.flatMap((entry) => entry.weeks).length, HORIZON, 'no week is lost or shown twice');
+    const draws = weeks.filter((entry) => entry.draw).map((entry) => [entry.draw.label, entry.weeks]);
+    assert.deepEqual(draws, [
+      ['Jul', [CHRISTMAS_EVE, ROMJUL]],
+      ['Nyttår', [NEW_YEAR]],
+      ['Kristi himmelfart', [ASCENSION, ASCENSION_FRIDAY]],
+      ['Pinse og 17. mai', [WHITSUN]],
+    ]);
   });
 });
