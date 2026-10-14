@@ -112,10 +112,13 @@ export function easterWeek(year) {
   return weekIdOf(new Date(easterSunday(year).getTime() - 2 * DAY));
 }
 
-/** "19.–26. mars 2027", or without the year where a heading above already says it. */
-export function formatRange(id, { year = true } = {}) {
+/**
+ * "19.–26. mars 2027", or without the year where a heading above already says it.
+ * A stay of more than one week runs to the Friday after its last week: "19. mars – 2. april 2027".
+ */
+export function formatRange(id, { year = true, weeks = 1 } = {}) {
   const from = fridayOf(id);
-  const to = new Date(from.getTime() + 7 * DAY);
+  const to = new Date(from.getTime() + weeks * 7 * DAY);
   const day = (date) => `${date.getUTCDate()}.`;
   const month = (date) => MONTHS[date.getUTCMonth()];
   const sameYear = from.getUTCFullYear() === to.getUTCFullYear();

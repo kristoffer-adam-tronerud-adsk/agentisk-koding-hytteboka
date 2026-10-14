@@ -23,7 +23,7 @@ There is no build step, bundler or linter.
 
 Request flow: `server.js` → `createApp` (`src/app.js`) → a rule in `src/cabin.js` via `store.change` → redirect, or a page from `src/pages.js`.
 
-- **`src/cabin.js` — the rules.** All state is one object `{ bookings: { [week]: { name, at } }, draws: { [week]: { label, entries } } }`. Each rule (`book`, `cancel`, `enter`, `withdraw`, `drawWinner`, `markDraw`, `unmarkDraw`) takes `(state, wish)`, mutates state and returns `{ ok: true }`, or leaves it and returns `{ ok: false, status, message }` with a Norwegian message for the user. A draw is "done" when its week has a booking — that booking is the winner.
+- **`src/cabin.js` — the rules.** All state is one object `{ bookings: { [week]: { name, at } }, draws: { [week]: { label, weeks, entries } } }`. Each rule (`book`, `cancel`, `enter`, `withdraw`, `drawWinner`, `markDraw`, `unmarkDraw`) takes `(state, wish)`, mutates state and returns `{ ok: true }`, or leaves it and returns `{ ok: false, status, message }` with a Norwegian message for the user. A draw is kept under its first week and covers `weeks` weeks in a row (1 or 2; missing means 1); the winner gets a booking on each, and `calendar` shows it as one entry. A draw is "done" when its first week has a booking — that booking is the winner.
 - **`src/store.js`** — one JSON file, loaded at start. `change(rule, wish)` runs the rule on a `structuredClone` and only keeps/writes it if `ok`. Writes go to `<file>.ny` then rename. Correctness relies on rules being synchronous in a single process.
 - **`src/weeks.js`** — week IDs like `"2027-W08"` (sort as text). A cabin week runs **Friday 12:00 to Friday 12:00** and is named after the ISO week its weekdays fall in; Easter week starts on Good Friday. Dates are held as midnight UTC; "now" is interpreted in Europe/Oslo. All date formatting (Norwegian) lives here.
 - **`src/app.js`** — routing by `pathname` with regexes. GET renders pages and serves the fixed list in `FILES` from `public/`. POST is a form: successful changes answer 303 to the page showing the result; refused ones re-render that page with the message and the rule's status. Identity is just the `navn` cookie (no login). Cross-site POSTs are rejected via `Sec-Fetch-Site`. Strict CSP: no inline scripts or styles — put browser code in `public/` and add it to `FILES`.
@@ -42,6 +42,7 @@ These come from Gro and are not up for reinterpretation. If code, tests or copy 
   - A week is shown with both Fridays as its dates ("19.–26. februar"), never Monday–Sunday.
   - Week numbers follow the ISO week of the weekdays the stay covers, so "uke 8" is the winter-break week people mean.
   - Easter week starts on Good Friday, so it covers the Easter weekend and Easter Monday.
+- **Easter is one trip of two weeks, and one winner gets both:** the week before Easter and Easter week, Friday before Palm Sunday to the Friday after Easter (2027: uke 12 og 13, 19. mars – 2. april). Why: nobody goes to the mountain for half an Easter. So the Easter draw is for two weeks, neither week can be booked on its own, and a winner who gives up one gives up both.
 
 ## Conventions
 

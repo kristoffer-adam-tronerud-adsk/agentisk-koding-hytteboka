@@ -124,7 +124,9 @@ export function createApp({ store, now = () => new Date() }) {
     }
 
     if (pathname === '/kontorsjef/trekningsuker') {
-      const result = store.change(markDraw, { ...wish, week: form.get('uke') ?? '', label: form.get('navn') ?? '' });
+      const result = store.change(markDraw, {
+        ...wish, week: form.get('uke') ?? '', label: form.get('navn') ?? '', weeks: Number(form.get('uker') ?? 1),
+      });
       return result.ok ? goTo('/kontorsjef') : showManager(result.status, result.message);
     }
 

@@ -2,7 +2,7 @@
 
 import { isEntered, sameName, Uke } from './cabin.js';
 import { html } from './html.js';
-import { formatMoment, formatRange, monthOf, weekNumber } from './weeks.js';
+import { formatMoment, formatRange, monthOf } from './weeks.js';
 
 export function calendarPage({ weeks, today, name, message, typedName }) {
   const months = [];
@@ -42,7 +42,7 @@ export function calendarPage({ weeks, today, name, message, typedName }) {
   `);
 }
 
-function weekCard({ week, booking, draw }, { name, today }) {
+function weekCard({ week, weeks, booking, draw }, { name, today }) {
   const mine = Boolean(booking && name && sameName(booking.name, name));
   const state = draw ? (booking ? 'drawn' : 'draw') : booking ? 'booked' : 'free';
   const post = (action, label, quiet = false) => html`
@@ -64,16 +64,16 @@ function weekCard({ week, booking, draw }, { name, today }) {
     if (name) action = entered ? post('meld-av', 'Meld meg av', true) : post('meld-pa', 'Meld meg på');
   } else {
     status = mine ? 'Du vant trekningen' : html`<span class="person">${booking.name}</span> vant trekningen`;
-    if (mine) action = post('avbestill', 'Si fra deg uka', true);
+    if (mine) action = post('avbestill', weeks.length === 1 ? 'Si fra deg uka' : 'Si fra deg ukene', true);
   }
 
   return html`
     <li class="week week--${state}${mine ? ' week--mine' : ''}" id="${week}">
       <p class="week-when">
-        <strong>Uke ${weekNumber(week)}</strong>
-        <span>${formatRange(week, { year: false })}</span>
+        <strong>${Uke(week, weeks.length)}</strong>
+        <span>${formatRange(week, { year: false, weeks: weeks.length })}</span>
       </p>
-      ${week === today ? html`<p class="tag">Denne uka</p>` : ''}
+      ${weeks.includes(today) ? html`<p class="tag">Denne uka</p>` : ''}
       ${draw ? html`<p class="tag tag--draw">${draw.label ? `Trekning · ${draw.label}` : 'Trekning'}</p>` : ''}
       <p class="week-status">${status}</p>
       ${action || draw ? html`
@@ -96,15 +96,16 @@ function nameForm(typedName) {
     </form>`;
 }
 
-export function drawPage({ week, draw, booking, message }) {
+export function drawPage({ week, weeks, draw, booking, message }) {
   const names = draw.entries.map((entry) => entry.name);
   const drawn = Boolean(booking);
+  const which = Uke(week, weeks.length);
 
-  return page({ title: `Trekning om ${draw.label || Uke(week)}`, stage: true, script: '/trekning.js' }, html`
+  return page({ title: `Trekning om ${draw.label || which}`, stage: true, script: '/trekning.js' }, html`
     <main class="draw${drawn ? ' is-done' : ''}" data-draw>
       <p class="draw-kicker">Trekning om hytta</p>
-      <h1>${draw.label || Uke(week)}</h1>
-      <p class="draw-when">${draw.label ? `${Uke(week)} · ` : ''}${formatRange(week)}</p>
+      <h1>${draw.label || which}</h1>
+      <p class="draw-when">${draw.label ? `${which} · ` : ''}${formatRange(week, { weeks: weeks.length })}</p>
       ${alert(message)}
 
       ${names.length === 0 ? html`<p class="draw-empty">Ingen har meldt seg på ennå.</p>` : ''}
@@ -155,6 +156,11 @@ export function managerPage({ draws, freeWeeks, name, message }) {
         <select id="uke" name="uke" required>
           ${freeWeeks.map((week) => html`<option value="${week}">${Uke(week)} · ${formatRange(week)}</option>`)}
         </select>
+        <label for="lengde">Hvor lenge varer turen?</label>
+        <select id="lengde" name="uker">
+          <option value="1">Én uke</option>
+          <option value="2">To uker, fra uka du valgte</option>
+        </select>
         <label for="ukenavn">Hva kaller dere uka? <span class="optional">Kan stå tomt</span></label>
         <input id="ukenavn" name="navn" maxlength="40" placeholder="Høstferie">
         <button class="button">Trekk lodd om denne uka</button>
@@ -163,13 +169,14 @@ export function managerPage({ draws, freeWeeks, name, message }) {
   `);
 }
 
-function drawRow({ week, draw, booking }) {
+function drawRow({ week, weeks, draw, booking }) {
   const names = draw.entries.map((entry) => entry.name);
+  const which = Uke(week, weeks.length);
   return html`
     <li>
       <p class="draw-list-title">
-        <strong>${draw.label || Uke(week)}</strong>
-        <span>${draw.label ? `${Uke(week)} · ` : ''}${formatRange(week)}</span>
+        <strong>${draw.label || which}</strong>
+        <span>${draw.label ? `${which} · ` : ''}${formatRange(week, { weeks: weeks.length })}</span>
       </p>
       <p>${booking
         ? html`Trukket: <span class="person">${booking.name}</span> vant.`

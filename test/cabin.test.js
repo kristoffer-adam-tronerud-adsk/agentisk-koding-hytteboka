@@ -8,7 +8,9 @@ import {
 // The week the tests happen in: Friday 9 to Friday 16 October 2026.
 const TODAY = '2026-W42';
 const AUTUMN = '2026-W45';
-const EASTER = '2027-W13';
+// Easter 2027 is one trip of two weeks: the week before, and the one from Good Friday.
+const EASTER = '2027-W12';
+const EASTER_WEEK = '2027-W13';
 const NOW = '2026-10-14T08:00:00.000Z';
 
 const as = (name, week) => ({ name, week, today: TODAY, now: NOW });
@@ -16,7 +18,7 @@ const as = (name, week) => ({ name, week, today: TODAY, now: NOW });
 /** A book where a winner is to be drawn for Easter. */
 function bookWithEaster(...entered) {
   const state = emptyState();
-  state.draws[EASTER] = { label: 'Påske', entries: [] };
+  state.draws[EASTER] = { label: 'Påske', weeks: 2, entries: [] };
   for (const name of entered) assert.equal(enter(state, as(name, EASTER)).ok, true);
   return state;
 }
@@ -103,7 +105,12 @@ describe('giving a week up', () => {
 describe('entering a draw', () => {
   test('a week a winner is drawn for cannot be booked', () => {
     const state = bookWithEaster();
-    refused(state, book, as('Ola Nordmann', EASTER), /Det trekkes lodd om uke 13/);
+    refused(state, book, as('Ola Nordmann', EASTER), /Det trekkes lodd om uke 12 og 13/);
+  });
+
+  test('neither week of Easter can be booked on its own', () => {
+    const state = bookWithEaster();
+    refused(state, book, as('Ola Nordmann', EASTER_WEEK), /Det trekkes lodd om uke 12 og 13/);
   });
 
   test('those who want the week enter, in the order they came', () => {
@@ -141,7 +148,7 @@ describe('drawing the winner', () => {
   const people = ['Ola Nordmann', 'Kari Hansen', 'Per Olsen'];
   const draw = (state, pick) => drawWinner(state, { week: EASTER, today: TODAY, now: NOW, pick });
 
-  test('the one whose ticket is picked gets the week', () => {
+  test('the one whose ticket is picked gets the whole stay', () => {
     const state = bookWithEaster(...people);
     const asked = [];
     const answer = draw(state, (count) => {
@@ -152,6 +159,7 @@ describe('drawing the winner', () => {
     assert.deepEqual(answer, { ok: true, winner: 1, entries: people });
     assert.deepEqual(asked, [3], 'one pick among the three tickets');
     assert.deepEqual(state.bookings[EASTER], { name: 'Kari Hansen', at: NOW });
+    assert.deepEqual(state.bookings[EASTER_WEEK], { name: 'Kari Hansen', at: NOW }, 'both weeks of Easter');
     assert.equal(state.draws[EASTER].entries.length, 3, 'the tickets stay, to show who was in the draw');
   });
 
@@ -186,7 +194,7 @@ describe('drawing the winner', () => {
   test('a winner is drawn once', () => {
     const state = bookWithEaster(...people);
     draw(state, () => 0);
-    refused(state, drawWinner, { week: EASTER, today: TODAY, now: NOW, pick: () => 2 }, /er gjort. Uka gikk til Ola Nordmann/);
+    refused(state, drawWinner, { week: EASTER, today: TODAY, now: NOW, pick: () => 2 }, /er gjort. Hytta gikk til Ola Nordmann/);
   });
 
   test('no winner is drawn for an ordinary week', () => {
@@ -196,9 +204,10 @@ describe('drawing the winner', () => {
   test('after the draw nobody enters, leaves or books the week', () => {
     const state = bookWithEaster(...people);
     draw(state, () => 0);
-    refused(state, enter, as('Nina Berg', EASTER), /Trekningen om uke 13 er gjort/);
-    refused(state, withdraw, as('Kari Hansen', EASTER), /Trekningen om uke 13 er gjort/);
+    refused(state, enter, as('Nina Berg', EASTER), /Trekningen om uke 12 og 13 er gjort/);
+    refused(state, withdraw, as('Kari Hansen', EASTER), /Trekningen om uke 12 og 13 er gjort/);
     refused(state, book, as('Nina Berg', EASTER), /gikk til Ola Nordmann/);
+    refused(state, book, as('Nina Berg', EASTER_WEEK), /gikk til Ola Nordmann/);
   });
 
   test('a winner who gives the week up is out, and it is drawn again among the others', () => {
@@ -208,22 +217,52 @@ describe('drawing the winner', () => {
 
     assert.equal(cancel(state, as('Ola Nordmann', EASTER)).ok, true);
     assert.equal(state.bookings[EASTER], undefined);
+    assert.equal(state.bookings[EASTER_WEEK], undefined, 'nobody keeps half of Easter');
     assert.deepEqual(state.draws[EASTER].entries.map((entry) => entry.name), ['Kari Hansen', 'Per Olsen']);
 
     assert.equal(enter(state, as('Nina Berg', EASTER)).ok, true, 'the draw is open again');
     assert.deepEqual(draw(state, () => 2), { ok: true, winner: 2, entries: ['Kari Hansen', 'Per Olsen', 'Nina Berg'] });
     assert.equal(state.bookings[EASTER].name, 'Nina Berg');
   });
+
+  test('giving up the second week of Easter gives up the first as well', () => {
+    const state = bookWithEaster(...people);
+    draw(state, () => 0);
+    assert.equal(cancel(state, as('Ola Nordmann', EASTER_WEEK)).ok, true);
+    assert.deepEqual(state.bookings, {});
+    assert.deepEqual(state.draws[EASTER].entries.map((entry) => entry.name), ['Kari Hansen', 'Per Olsen']);
+  });
 });
 
 describe('choosing the weeks a winner is drawn for', () => {
-  const choose = (week, label = '') => ({ week, label, today: TODAY });
+  const choose = (week, label = '', weeks = 1) => ({ week, label, weeks, today: TODAY });
 
   test('a free week can be set up for a draw, with a name', () => {
     const state = emptyState();
     assert.equal(markDraw(state, choose(AUTUMN, '  Høstferie ')).ok, true);
-    assert.deepEqual(state.draws[AUTUMN], { label: 'Høstferie', entries: [] });
+    assert.deepEqual(state.draws[AUTUMN], { label: 'Høstferie', weeks: 1, entries: [] });
     refused(state, book, as('Ola Nordmann', AUTUMN), /Det trekkes lodd om uke 45/);
+  });
+
+  test('a draw can be for two weeks in a row, and then neither can be booked', () => {
+    const state = emptyState();
+    assert.equal(markDraw(state, choose(AUTUMN, 'Høstferie', 2)).ok, true);
+    assert.deepEqual(state.draws[AUTUMN], { label: 'Høstferie', weeks: 2, entries: [] });
+    refused(state, book, as('Ola Nordmann', '2026-W46'), /Det trekkes lodd om uke 45 og 46/);
+    refused(state, markDraw, choose('2026-W46'), /Det trekkes allerede lodd om uke 46/);
+    refused(state, markDraw, choose('2026-W44', '', 2), /Det trekkes allerede lodd om uke 45/);
+  });
+
+  test('a two-week draw needs the second week free and in the book too', () => {
+    const state = emptyState();
+    book(state, as('Ola Nordmann', '2026-W46'));
+    refused(state, markDraw, choose(AUTUMN, '', 2), /Uke 46 er allerede booket av Ola Nordmann/);
+    refused(state, markDraw, choose('2027-W40', '', 2), /Uke 41 er for langt fram/);
+  });
+
+  test('a draw is for one week or two, nothing else', () => {
+    refused(emptyState(), markDraw, choose(AUTUMN, '', 3), /én eller to uker/, 400);
+    refused(emptyState(), markDraw, choose(AUTUMN, '', NaN), /én eller to uker/, 400);
   });
 
   test('a week that is booked, or already set up, cannot be', () => {
@@ -252,7 +291,7 @@ describe('choosing the weeks a winner is drawn for', () => {
     const state = bookWithEaster('Ola Nordmann');
     refused(state, unmarkDraw, choose(EASTER), /1 har meldt seg på/);
     drawWinner(state, { week: EASTER, today: TODAY, now: NOW });
-    refused(state, unmarkDraw, choose(EASTER), /Trekningen om uke 13 er gjort/);
+    refused(state, unmarkDraw, choose(EASTER), /Trekningen om uke 12 og 13 er gjort/);
     refused(state, unmarkDraw, choose(AUTUMN), /Det trekkes ikke lodd om uke 45/);
   });
 });
@@ -263,30 +302,50 @@ describe('the book as it is shown', () => {
     book(state, as('Ola Nordmann', AUTUMN));
     const weeks = calendar(state, TODAY);
 
-    assert.equal(weeks.length, HORIZON);
+    assert.equal(weeks.flatMap((entry) => entry.weeks).length, HORIZON);
     assert.equal(weeks[0].week, TODAY);
     assert.equal(weeks.at(-1).week, '2027-W40');
-    assert.deepEqual(weeks[0], { week: TODAY, booking: null, draw: null });
+    assert.deepEqual(weeks[0], { week: TODAY, weeks: [TODAY], booking: null, draw: null });
     assert.equal(weeks.find((entry) => entry.week === AUTUMN).booking.name, 'Ola Nordmann');
-    assert.equal(weeks.find((entry) => entry.week === EASTER).draw.label, 'Påske');
   });
 
-  test('a new book has Easter and the winter break set up for a draw', () => {
+  test('Easter is one stay in the calendar, not two weeks', () => {
+    const weeks = calendar(bookWithEaster('Kari Hansen'), TODAY);
+    const easter = weeks.find((entry) => entry.week === EASTER);
+    assert.deepEqual(easter.weeks, [EASTER, EASTER_WEEK]);
+    assert.equal(easter.draw.label, 'Påske');
+    assert.equal(weeks.find((entry) => entry.week === EASTER_WEEK), undefined);
+  });
+
+  test('in the second week of a stay, the calendar still shows it from its start', () => {
+    const weeks = calendar(bookWithEaster(), EASTER_WEEK);
+    assert.equal(weeks[0].week, EASTER);
+    assert.deepEqual(weeks[0].weeks, [EASTER, EASTER_WEEK]);
+  });
+
+  test('a draw from a book written before draws had a length is for one week', () => {
+    const state = emptyState();
+    state.draws[AUTUMN] = { label: '', entries: [] };
+    assert.deepEqual(calendar(state, TODAY).find((entry) => entry.week === AUTUMN).weeks, [AUTUMN]);
+    assert.equal(book(state, as('Ola Nordmann', '2026-W46')).ok, true);
+  });
+
+  test('a new book has Easter, for two weeks, and the winter break set up for a draw', () => {
     const state = firstState(new Date('2026-10-11T12:00:00Z'));
     assert.deepEqual(state.bookings, {});
     assert.deepEqual(state.draws, {
-      '2027-W08': { label: 'Vinterferie', entries: [] },
-      '2027-W13': { label: 'Påske', entries: [] },
+      '2027-W08': { label: 'Vinterferie', weeks: 1, entries: [] },
+      '2027-W12': { label: 'Påske', weeks: 2, entries: [] },
     });
   });
 
   test('a new book takes this year’s weeks while they are still ahead', () => {
     const state = firstState(new Date('2027-01-11T12:00:00Z'));
-    assert.deepEqual(Object.keys(state.draws), ['2027-W08', '2027-W13']);
+    assert.deepEqual(Object.keys(state.draws), ['2027-W08', '2027-W12']);
   });
 
   test('a new book leaves out an Easter that is more than 52 weeks away', () => {
-    // The week after Easter 2027. Easter 2028 is in week 16, 54 weeks later.
+    // The week after Easter 2027. Easter 2028 starts in week 15, 53 weeks later.
     const state = firstState(new Date('2027-04-05T12:00:00Z'));
     assert.deepEqual(Object.keys(state.draws), ['2028-W08']);
   });

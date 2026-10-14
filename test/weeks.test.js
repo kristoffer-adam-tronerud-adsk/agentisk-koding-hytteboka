@@ -85,6 +85,7 @@ test('Easter week starts on Good Friday', () => {
 test('a week is written with its dates', () => {
   assert.equal(formatRange('2027-W12'), '19.–26. mars 2027');
   assert.equal(formatRange('2027-W13'), '26. mars – 2. april 2027');
+  assert.equal(formatRange('2027-W12', { weeks: 2 }), '19. mars – 2. april 2027', 'a stay of two weeks');
   assert.equal(formatRange('2026-W53'), '25. desember 2026 – 1. januar 2027');
   assert.equal(formatRange('2027-W12', { year: false }), '19.–26. mars');
   assert.equal(formatRange('2026-W53', { year: false }), '25. desember – 1. januar');
